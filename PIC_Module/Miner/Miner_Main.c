@@ -144,13 +144,13 @@ ROM APP_CONFIG rapc = {
 
 ROM	BYTE	rMinPool[2][32] = {
 #if defined(__18F67J60) || defined(_18F67J60)
-		{"192.168.1.60"},      {"pool.50btc.com" }
+		{"192.168.1.38"},      {"pool.50btc.com" }
 #else
 		{"de.btcguild.com"},      {"pool.50btc.com" }
 #endif
 };
 ROM	BYTE	rUsrPass[2][62] = { 
-		{"jethrosoft_00:wasabi"}, {"jethro@mail.bg:wasabi" }
+		{"naituida_1:123"}, {"jethro@mail.bg:wasabi" }
 };
 ROM APP_CONFIG fapc = {
 	{ 0x00, 0x0e, 0x12, 0xe4, 0x35, 0xda },				// MAC		(MyMACAddr)
