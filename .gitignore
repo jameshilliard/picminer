@@ -19,3 +19,8 @@
 
 # Project File
 Miner.X
+
+# temp files
+*.*~
+*#
+
