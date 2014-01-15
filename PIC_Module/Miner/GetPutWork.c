@@ -74,6 +74,11 @@ volatile S_DAMID	sdami[GW_CELLS];
 volatile S_PWORK	spwrk[PW_CELLS];
 APP_CONFIG AppConfig;
 #pragma ram
+UINT32 *worker_ntime;
+UINT32 ntime;
+BYTE data[76];
+BYTE midstate[32];
+
 
 
 extern BYTE *httpData;
@@ -85,7 +90,8 @@ static volatile BYTE pwix = 0;
 BYTE bLEDs = 0;
 DWORD subm = 0ul;
 DWORD gotn = 0ul;
-
+static volatile BYTE rolling = 0;
+static volatile DWORD rolled = 0;
 
 static void putUART(char data) { while(!TXSTAbits.TRMT); TXREG = data; }
 
@@ -207,96 +213,93 @@ void GetWork(BYTE mo)	{
   static TICK	Timer[4];
   static BYTE tmt = 0;
   volatile BYTE	msk;
-  UINT32 *worker_ntime;
-  UINT32 ntime;
   int i;
 
 
 
   if(AppConfig.who & 0x80)			{ AppConfig.who &= 0x7f; GPW_Restart(); }	// request from WEB to change the current pool
   if(dwRunt) if(dwRunt < 161ul) 		{ dwRunt=0ul; subm=0ul; gotn=0ul; memset(acci,0,sizeof(acci)); }
-
-  switch(State[mo])	{
-  case SM_CONM_URL:
-    if(IPs.Val)			{ State[mo]=SM_CONN_IP; break; }
-    strcpypgm2ram(am,rMinPool[AppConfig.who]);
-    if(alpha_in(am))	{
-      gsock[mo] = TCPOpen((DWORD)am, TCP_OPEN_RAM_HOST, AppConfig.MinPort[AppConfig.who], TCP_PURPOSE_GENERIC_TCP_CLIENT);
-    }
-    else	{
-      StringToIPAddress(am,&IPis);
-      gsock[mo] = TCPOpen(IPis.Val, TCP_OPEN_IP_ADDRESS, AppConfig.MinPort[AppConfig.who], TCP_PURPOSE_GENERIC_TCP_CLIENT); 
-    }
-    if(gsock[mo] == INVALID_SOCKET)		break;
-    State[mo]=SM_ISCONN_URL;
-    Timer[mo] = TickGet();
-    break;
-
-  case SM_ISCONN_URL:
-    if(!TCPIsConnected(gsock[mo]))		{
-      if(TickGet()-Timer[mo] > 10*TICK_SECOND)	{
-	State[mo] = SM_DISCONNECT;
-	if(++tmt > 5)		{ tmt=0; AppConfig.who ^= 1; GPW_Restart(); }	// alternate the account
+  
+  if(!rolling) {
+    switch(State[mo])	{
+    case SM_CONM_URL:
+      if(IPs.Val)			{ State[mo]=SM_CONN_IP; break; }
+      strcpypgm2ram(am,rMinPool[AppConfig.who]);
+      if(alpha_in(am))	{
+	gsock[mo] = TCPOpen((DWORD)am, TCP_OPEN_RAM_HOST, AppConfig.MinPort[AppConfig.who], TCP_PURPOSE_GENERIC_TCP_CLIENT);
       }
-      break;
-    }
-    tmt=0;
-    IPs.Val =  TCPGetRemoteInfo(gsock[mo])->remote.IPAddr.Val;
-    TCPDisconnect(gsock[mo]); gsock[mo] = INVALID_SOCKET;	State[mo]=SM_CONN_IP;
-    break;
-
-  case SM_CONN_IP:
-    if(!IPs.Val)	{ State[mo] = SM_CONM_URL; break; }
-    if(gwix >= (GW_CELLS) )	break;
-    gsock[mo] = TCPOpen(IPs.Val, TCP_OPEN_IP_ADDRESS, AppConfig.MinPort[AppConfig.who], TCP_PURPOSE_GENERIC_TCP_CLIENT); 
-    if(gsock[mo] == INVALID_SOCKET)		break;
-    Timer[mo] = TickGet();
-    State[mo]=SM_SEND_GPW;
-    break;
-
-  case SM_SEND_GPW:
-    if(!TCPIsConnected(gsock[mo]))		{
-      if(TickGet()-Timer[mo] > 5*TICK_SECOND)	{
-	State[mo]=SM_DISCONNECT;
-	if(++tmt > 5) { tmt=0; AppConfig.who ^= 1; GPW_Restart(); }	// alternate the account
+      else	{
+	StringToIPAddress(am,&IPis);
+	gsock[mo] = TCPOpen(IPis.Val, TCP_OPEN_IP_ADDRESS, AppConfig.MinPort[AppConfig.who], TCP_PURPOSE_GENERIC_TCP_CLIENT); 
       }
+      if(gsock[mo] == INVALID_SOCKET)		break;
+      State[mo]=SM_ISCONN_URL;
+      Timer[mo] = TickGet();
       break;
-    }
-    tmt = 0; 
-    if(gwix >= GW_CELLS)	 break;
-    if(SendGPW(gsock[mo], M_GETWORK))		{ State[mo]=SM_TAKE_WORK;	Timer[mo] = TickGet(); }
-    break;
 
-  case SM_TAKE_WORK:
-    if(!TCPIsConnected(gsock[mo]) || (gwix >= GW_CELLS) )	State[mo] = SM_DISCONNECT;
-    else {
-      if(TCPIsGetReady(gsock[mo])>620u) {
-	BYTE *p; WORD w=TCPGetArray(gsock[mo],httpData,900); httpData[w]=0;
-	msk = 0; mid = (volatile BYTE *)&sdami[gwix].hmids[0]; dat = (volatile BYTE *)&sdami[gwix].hdata[0];
-	p = strstrrampgm(httpData,"data");		if(p) {
-	  p = strstrrampgm(p,":"); p = strstrrampgm(p,"\""); p++;
-	  msk |= MS_DATA;	for(t=0;t<76;t++) { dat[t]=hex2bin(p); p+=2; }
+    case SM_ISCONN_URL:
+      if(!TCPIsConnected(gsock[mo]))		{
+	if(TickGet()-Timer[mo] > 10*TICK_SECOND)	{
+	  State[mo] = SM_DISCONNECT;
+	  if(++tmt > 5)		{ tmt=0; AppConfig.who ^= 1; GPW_Restart(); }	// alternate the account
 	}
-	p = strstrrampgm(httpData,"dstate"); if(p) { 
-	  p = strstrrampgm(p,":"); p = strstrrampgm(p,"\""); p++;
-	  msk |= MS_MIDS;	for(t=0;t<32;t++) { mid[t]=hex2bin(p); p+=2; }
+	break;
+      }
+      tmt=0;
+      IPs.Val =  TCPGetRemoteInfo(gsock[mo])->remote.IPAddr.Val;
+      TCPDisconnect(gsock[mo]); gsock[mo] = INVALID_SOCKET;	State[mo]=SM_CONN_IP;
+      break;
+
+    case SM_CONN_IP:
+      if(!IPs.Val)	{ State[mo] = SM_CONM_URL; break; }
+      if(gwix >= (GW_CELLS) )	break;
+      gsock[mo] = TCPOpen(IPs.Val, TCP_OPEN_IP_ADDRESS, AppConfig.MinPort[AppConfig.who], TCP_PURPOSE_GENERIC_TCP_CLIENT); 
+      if(gsock[mo] == INVALID_SOCKET)		break;
+      Timer[mo] = TickGet();
+      State[mo]=SM_SEND_GPW;
+      break;
+
+    case SM_SEND_GPW:
+      if(!TCPIsConnected(gsock[mo]))		{
+	if(TickGet()-Timer[mo] > 5*TICK_SECOND)	{
+	  State[mo]=SM_DISCONNECT;
+	  if(++tmt > 5) { tmt=0; AppConfig.who ^= 1; GPW_Restart(); }	// alternate the account
 	}
-	TCPDiscard(gsock[mo]);
+	break;
+      }
+      tmt = 0; 
+      if(gwix >= GW_CELLS)	 break;
+      if(SendGPW(gsock[mo], M_GETWORK))		{ State[mo]=SM_TAKE_WORK;	Timer[mo] = TickGet(); }
+      break;
 
-	worker_ntime=(UINT32 *)(dat+68);
-	ntime=swap_byte(*worker_ntime);
-
-	for(i=1;i<(GW_CELLS);i++) {
-	  for(t=0;t<76;t++) {sdami[i].hdata[t]=dat[t];}
-	  for(t=0;t<32;t++) {sdami[i].hmids[t]=mid[t];}
-	  ntime++;
-	  worker_ntime=(UINT32 *)((volatile BYTE *)&sdami[i].hdata[0]+68);
-	  *worker_ntime=swap_byte(ntime);
+    case SM_TAKE_WORK:
+      if(!TCPIsConnected(gsock[mo]) || (gwix >= GW_CELLS) )	State[mo] = SM_DISCONNECT;
+      else {
+	if(TCPIsGetReady(gsock[mo])>620u) {
+	  BYTE *p; WORD w=TCPGetArray(gsock[mo],httpData,900); httpData[w]=0;
+	  msk = 0; mid = (volatile BYTE *)&sdami[gwix].hmids[0]; dat = (volatile BYTE *)&sdami[gwix].hdata[0];
+	  p = strstrrampgm(httpData,"data");		if(p) {
+	    p = strstrrampgm(p,":"); p = strstrrampgm(p,"\""); p++;
+	    msk |= MS_DATA;	for(t=0;t<76;t++) { dat[t]=hex2bin(p); p+=2; }
+	  }
+	  p = strstrrampgm(httpData,"dstate"); if(p) { 
+	    p = strstrrampgm(p,":"); p = strstrrampgm(p,"\""); p++;
+	    msk |= MS_MIDS;	for(t=0;t<32;t++) { mid[t]=hex2bin(p); p+=2; }
+	  }
+	  TCPDiscard(gsock[mo]);
+	
 	  gwix++;
-	}
 
-	/* if(msk&MS_DATA) { */
-	/*   if(!(msk&MS_MIDS) )	sha256_Chunk_1( (DWORD *) &mid[0], (DWORD *) &dat[0]); */
+	  worker_ntime=(UINT32 *)(dat+68);
+	  ntime=swap_byte(*worker_ntime);
+
+	  for(t=0;t<76;t++) {data[t]=dat[t];}
+	  for(t=0;t<32;t++) {midstate[t]=mid[t];}
+	  rolling = 1;
+	  rolled = 0;
+
+	  /* if(msk&MS_DATA) { */
+	  /*   if(!(msk&MS_MIDS) )	sha256_Chunk_1( (DWORD *) &mid[0], (DWORD *) &dat[0]); */
 #ifdef _M_SHOW_S_
 #ifndef _M_TEST_M_
 	  putUART('A'+mo);
@@ -305,22 +308,34 @@ void GetWork(BYTE mo)	{
 #ifdef _M_TEST_M_
 	  putUART('A'+mo);
 #endif
-	State[mo]=SM_DISCONNECT;
+	  State[mo]=SM_DISCONNECT;
+	}
+	else if(TickGet()-Timer[mo] > 5*TICK_SECOND)	{ 
+	  // 					AppConfig.who ^= 1; GPW_Restart(); 
+	  //					putrsUART("\r\nLogin failed, trying alternate pool!\r\n");
+	  State[mo]=SM_DISCONNECT;
+	}
       }
-      else if(TickGet()-Timer[mo] > 5*TICK_SECOND)	{ 
-	// 					AppConfig.who ^= 1; GPW_Restart(); 
-	//					putrsUART("\r\nLogin failed, trying alternate pool!\r\n");
-	State[mo]=SM_DISCONNECT;
-      }
-    }
-    break;			
+      break;			
 	
-  case SM_DISCONNECT:
-    if(gsock[mo] != INVALID_SOCKET) TCPDisconnect(gsock[mo]);
-    gsock[mo] = INVALID_SOCKET;		State[mo] = SM_CONM_URL;
-    break;
+    case SM_DISCONNECT:
+      if(gsock[mo] != INVALID_SOCKET) TCPDisconnect(gsock[mo]);
+      gsock[mo] = INVALID_SOCKET;		State[mo] = SM_CONM_URL;
+      break;
+    }
+  } else {
+    if(gwix < (GW_CELLS) ) {
+      mid = (volatile BYTE *)&sdami[gwix].hmids[0]; dat = (volatile BYTE *)&sdami[gwix].hdata[0];
+      for(t=0;t<32;t++) { mid[t] = midstate[t]; }
+      for(t=0;t<76;t++) { dat[t] = data[t]; }
+      ntime++;
+      worker_ntime=(UINT32 *)((volatile BYTE *)&sdami[gwix].hdata[0]+68);
+      *worker_ntime=swap_byte(ntime);
+      gwix++;
+      rolled++;
+      if(rolled>60) { rolling = 0; }
+    }
   }
-
 }
 
 

@@ -115,11 +115,11 @@ extern void IP2String(IP_ADDR IPVal, char *buf);
 ROM APP_CONFIG rapc = {
 	{ 0x00, 0x0e, 0x12, 0xe4, 0x35, 0xda },				// MAC		(MyMACAddr)
 #if defined(__18F67J60) || defined(_18F67J60)
-	{ 192ul | 168ul<<8 |   1ul<<16   | 254ul<<24 },		// LocalIP	(MyIPAddr)
-	{ 255ul | 255ul<<8 | 255ul<<16   |   0ul<<24 },		// Net Mask (MyMask)
-	{ 192ul | 168ul<<8 |   1ul<<16   |   1ul<<24 },		// GateWay	(MyGateway)
+	{ 192ul | 168ul<<8 |   0ul<<16   | 253ul<<24 },		// LocalIP	(MyIPAddr)
+	{ 255ul | 255ul<<8 | 0ul<<16   |   0ul<<24 },		// Net Mask (MyMask)
+	{ 192ul | 168ul<<8 |   0ul<<16   |   1ul<<24 },		// GateWay	(MyGateway)
 	{ 8000u },											// LOcalPOrt (MyPort)
-	{ 192ul | 168ul<<8 |   1ul<<16   |   1ul<<24 },		// Primary DNS Server (PrimaryDNSServer)
+	{ 192ul | 168ul<<8 |   0ul<<16   |   1ul<<24 },		// Primary DNS Server (PrimaryDNSServer)
 	{ 211ul | 148ul<<8 | 192ul<<16   | 141ul<<24 },		// Secondary DNS Server (SecondaryDNSServer)
 #else
 	{ 192ul | 168ul<<8 | 0ul<<16   | 254ul<<24 },		// LocalIP	(MyIPAddr)
@@ -144,7 +144,7 @@ ROM APP_CONFIG rapc = {
 
 ROM	BYTE	rMinPool[2][32] = {
 #if defined(__18F67J60) || defined(_18F67J60)
-		{"192.168.1.38"},      {"pool.50btc.com" }
+		{"192.168.0.30"},      {"pool.50btc.com" }
 #else
 		{"de.btcguild.com"},      {"pool.50btc.com" }
 #endif
@@ -345,8 +345,8 @@ void main(void) {
 		o_CkSel = (AppConfig.CkSel&1) ? 1:0; 	// refresh the Clock Selector
 
 		if(!SUPD)	{ if(!flag) { GetWork(i); Dispatch(); PutWork(i); } HTTPServer(); }
-		i++;
-		i &= 0x03;
+		/* i++; */
+		/* i &= 0x03; */
     }
 }
 
