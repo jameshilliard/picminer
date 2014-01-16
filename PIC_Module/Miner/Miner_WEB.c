@@ -1,4 +1,3 @@
-
 #define _FAVICON_
 
 #define C_PERF	4391ul
