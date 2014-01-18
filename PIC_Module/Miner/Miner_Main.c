@@ -115,7 +115,7 @@ extern void IP2String(IP_ADDR IPVal, char *buf);
 ROM APP_CONFIG rapc = {
 	{ 0x00, 0x0e, 0x12, 0xe4, 0x35, 0xda },				// MAC		(MyMACAddr)
 #if defined(__18F67J60) || defined(_18F67J60)
-	{ 192ul | 168ul<<8 |   0ul<<16   | 253ul<<24 },		// LocalIP	(MyIPAddr)
+	{ 192ul | 168ul<<8 |   0ul<<16   | 252ul<<24 },		// LocalIP	(MyIPAddr)
 	{ 255ul | 255ul<<8 | 0ul<<16   |   0ul<<24 },		// Net Mask (MyMask)
 	{ 192ul | 168ul<<8 |   0ul<<16   |   1ul<<24 },		// GateWay	(MyGateway)
 	{ 8000u },											// LOcalPOrt (MyPort)
@@ -139,7 +139,7 @@ ROM APP_CONFIG rapc = {
 	{ 0x01 },											// sw_mode -> 1/0 = Primary / Backup
 	{ 0x00 },											// Aux 8 Flags - not in use 
 	{ 0x01 },											// ClockSelector High/Low = 0/1
-	{ { 8332u}, {8332u}  }								// Mining pool ports (MinPort[2])
+	{ { 8333u}, {8333u}  }								// Mining pool ports (MinPort[2])
 };
 
 ROM	BYTE	rMinPool[2][32] = {
@@ -343,7 +343,7 @@ void main(void) {
 
         StackTask();			// This task performs normal stack task including checking for incoming packet, type of packet and calling appropriate stack entity to process it.        
 		o_CkSel = (AppConfig.CkSel&1) ? 1:0; 	// refresh the Clock Selector
-
+		flag=0;
 		if(!SUPD)	{ if(!flag) { GetWork(i); Dispatch(); PutWork(i); } HTTPServer(); }
 		/* i++; */
 		/* i &= 0x03; */
@@ -543,6 +543,7 @@ static BYTE CheckASIC(void) {
 	CheckNonce(stat);
 #endif
 	for(ch=0;ch<32;ch++) {
+	  stat[ch]=1;
 		if(stat[ch]) { PutStat(1);	SetExist(ch); }
 		else	PutStat(0);
 	}

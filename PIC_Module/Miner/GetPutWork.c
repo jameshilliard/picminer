@@ -338,6 +338,7 @@ void GetWork(BYTE mo)	{
   }
 }
 
+static ROM BYTE fake_nonce[] = { 0x55,0x55,0x55,0x55 };
 
 void Dispatch(void) {
   volatile BYTE chh;
@@ -346,25 +347,44 @@ void Dispatch(void) {
   //// ************* Emulation Fragment **********
   static BYTE ch=0;
   static IP_ADDR	IPo = 0; if(IPo.Val != IPs.Val) { IPo.Val = IPs.Val;	putcUART('.'); } 
-	
-  if(( gwix) && !GetExist(ch) ) {
-    mid = (volatile BYTE *)&sdami[0].hmids[0];		dat = (volatile BYTE *)&sdami[0].hdata[0];
-    SelectChannel(ch);
-    OutASIC(mid, dat);	M2S(ch,(BYTE *)dat);
-    gwix--;	gotn++; memcpy( (void *)&sdami[0], (void *)&sdami[1], (GW_CELLS-1) * sizeof(S_DAMID) );
-    SetExist(ch);
+  
+  if( (gwix) ) {
+    mid = (volatile BYTE *)&sdami[0].hmids[0];
+    dat = (volatile BYTE *)&sdami[0].hdata[0];
+    gwix--;
+    gotn++;
+    memcpy(spwrk[pwix].hdata,dat,76);
+    memcpy(spwrk[pwix].hdata+76, (void *)&fake_nonce[0],4);
+    memcpy( (void *)&sdami[0], (void *)&sdami[1], (GW_CELLS-1) * sizeof(S_DAMID) );    
   }
-  ch++; ch &= 31;
-
-  if(pwix >= PW_CELLS) 		return;
-  if(!GetExist(ch))		return;
-  SelectChannel(ch);	GetNonce();
-  if(bLEDs)	putUART(0x80 | ch);
-  S2M(ch,&spwrk[pwix].hdata[0]);
-  memcpy((void *) &spwrk[pwix].hdata[76], (void *) &nonce[0], 4 );
+  ch++;
+  ch&=31;
   spwrk[pwix].AsicID=ch;
+
   pwix++;
-  ClrExist(ch);
+  if(pwix> (PW_CELLS) ) return;
+  
+  
+  
+  /* if(( gwix) /\* && !GetExist(ch)  *\/) { */
+  /*   mid = (volatile BYTE *)&sdami[0].hmids[0];		dat = (volatile BYTE *)&sdami[0].hdata[0]; */
+  /*   /\* SelectChannel(ch); *\/ */
+  /*   /\* OutASIC(mid, dat);	M2S(ch,(BYTE *)dat); *\/ */
+  /*   gwix--;	gotn++; memcpy( (void *)&sdami[0], (void *)&sdami[1], (GW_CELLS-1) * sizeof(S_DAMID) ); */
+  /*   SetExist(ch); */
+  /* } */
+  /* ch++; ch &= 31; */
+
+  /* if(pwix >= PW_CELLS) 		return; */
+  /* if(!GetExist(ch))		return; */
+  /* SelectChannel(ch);	GetNonce(); */
+  /* if(bLEDs)	putUART(0x80 | ch); */
+  /* S2M(ch,&spwrk[pwix].hdata[0]); */
+  /* Delay10KTCYx(250);   */
+  /* memcpy((void *) &spwrk[pwix].hdata[76], (void *) &fake_nonce[0], 4 ); */
+  /* spwrk[pwix].AsicID=ch; */
+  /* pwix++; */
+  /* ClrExist(ch); */
   ////* ************* Emulation Fragment  end **********
 #else
   ///// ************* Real Fragment **********

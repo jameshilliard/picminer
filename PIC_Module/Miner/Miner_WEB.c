@@ -58,7 +58,7 @@ static	ROM BYTE hdrICO[]	=	"HTTP/1.0 200 OK\r\nServer: Jephis Miner WEB Server\r
 
 
 static ROM BYTE Page[] =
-"<html><head><title>Jephis Miner</title></head>"
+"<html><head><title>nTime Rolling Jephis Miner</title></head>"
 "<body bgcolor=#9999FF text=#ffffff>"
 "<table cellpadding=3 cellspacing=0 width=100%>"
 "<tbody><tr bgcolor=#5050ff>"

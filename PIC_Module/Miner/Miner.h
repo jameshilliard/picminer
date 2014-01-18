@@ -2,7 +2,7 @@
 #ifndef _MINER_H_
 #define _MINER_H_
 
-// #define _M_TEST_M_
+#define _M_TEST_M_
 #define _M_SHOW_S_
 
 
