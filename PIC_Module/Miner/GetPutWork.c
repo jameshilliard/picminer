@@ -338,7 +338,7 @@ void GetWork(BYTE mo)	{
   }
 }
 
-static ROM BYTE fake_nonce[] = { 0x55,0x55,0x55,0x55 };
+static BYTE fake_nonce[] = { 0x55,0x55,0x55,0x55 };
 
 void Dispatch(void) {
   volatile BYTE chh;
@@ -348,23 +348,36 @@ void Dispatch(void) {
   static BYTE ch=0;
   static IP_ADDR	IPo = 0; if(IPo.Val != IPs.Val) { IPo.Val = IPs.Val;	putcUART('.'); } 
   
-  if( (gwix) ) {
-    mid = (volatile BYTE *)&sdami[0].hmids[0];
-    dat = (volatile BYTE *)&sdami[0].hdata[0];
-    gwix--;
-    gotn++;
-    memcpy(spwrk[pwix].hdata,dat,76);
-    memcpy(spwrk[pwix].hdata+76, (void *)&fake_nonce[0],4);
-    memcpy( (void *)&sdami[0], (void *)&sdami[1], (GW_CELLS-1) * sizeof(S_DAMID) );    
-  }
-  ch++;
-  ch&=31;
-  spwrk[pwix].AsicID=ch;
 
-  pwix++;
-  if(pwix> (PW_CELLS) ) return;
-  
-  
+  for(chh=0;chh<32;chh++){
+    dat = (volatile BYTE *)&sdami[0].hdata[0];
+    gwix--;gotn++;
+    memcpy(spwrk[pwix].hdata, (void *)dat, 76);
+    /* memcpy( (void *)&sdami[0], (void *)&sdami[1], (GW_CELLS-1) * sizeof(S_DAMID) ); */
+    Delay10KTCYx(250);
+    
+    if(pwix < (PW_CELLS)) {
+      memcpy(spwrk[pwix].hdata+76, (void *)&fake_nonce[0],4);
+      spwrk[pwix].AsicID=chh;
+      pwix++;
+    }
+  }
+  /* if( (gwix) ) { */
+  /*   mid = (volatile BYTE *)&sdami[0].hmids[0]; */
+  /*   dat = (volatile BYTE *)&sdami[0].hdata[0]; */
+  /*   gwix--; */
+  /*   gotn++; */
+  /*   memcpy(spwrk[pwix].hdata, (void *)dat, 76); */
+  /*   memcpy(spwrk[pwix].hdata+76, (void *)&fake_nonce[0],4); */
+  /*   memcpy( (void *)&sdami[0], (void *)&sdami[1], (GW_CELLS-1) * sizeof(S_DAMID) );     */
+  /* } */
+  /* ch++; */
+  /* ch&=31; */
+  /* spwrk[pwix].AsicID=ch; */
+
+  /* pwix++; */
+  /* if(pwix> (PW_CELLS) ) return; */
+  /* Delay10KTCYx(250); */
   
   /* if(( gwix) /\* && !GetExist(ch)  *\/) { */
   /*   mid = (volatile BYTE *)&sdami[0].hmids[0];		dat = (volatile BYTE *)&sdami[0].hdata[0]; */
